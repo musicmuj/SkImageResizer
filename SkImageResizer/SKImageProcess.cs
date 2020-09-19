@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SkiaSharp;
@@ -53,11 +55,25 @@ namespace SkImageResizer
                 Directory.CreateDirectory(destPath);
             }
 
-            await Task.Yield();
+            //await Task.Yield();
 
+            var taskList = new List<Task>();
             var allFiles = FindImages(sourcePath);
             foreach (var filePath in allFiles)
             {
+                taskList.Add(ResizePicture(destPath, scale, filePath));
+            }
+
+            await Task.WhenAll(taskList);
+        }
+
+        private static Task ResizePicture(string destPath, double scale, string filePath)
+        {
+            return Task.Run(() =>
+            {
+                //Console.WriteLine($"Thread Id: {Thread.CurrentThread.ManagedThreadId:D2}--- {filePath}");
+                //Stopwatch watch = Stopwatch.StartNew();
+
                 var bitmap = SKBitmap.Decode(filePath);
                 var imgPhoto = SKImage.FromBitmap(bitmap);
                 var imgName = Path.GetFileNameWithoutExtension(filePath);
@@ -75,7 +91,10 @@ namespace SkImageResizer
                 using var data = scaledImage.Encode(SKEncodedImageFormat.Jpeg, 100);
                 using var s = File.OpenWrite(Path.Combine(destPath, imgName + ".jpg"));
                 data.SaveTo(s);
-            }
+
+                //watch.Stop();
+                //Console.WriteLine($"[{filePath}]: {watch.ElapsedMilliseconds}");
+            });
         }
 
         /// <summary>
